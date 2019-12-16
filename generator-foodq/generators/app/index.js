@@ -1,17 +1,34 @@
 var Generator = require('yeoman-generator');
 var chalkPipe = require('chalk-pipe');
 var Inquirer = require('inquirer');
+var path = require('path');
+var Env = require('yeoman-environment');
 
 module.exports = class extends Generator {
   constructor(args, opts) {
     super(args, opts);
 
+    const env = Env.createEnv();
+    var mtaGenPath = path.resolve(path.sep, 'Users', 'i034929', 'AppData', 'Roaming', 'npm', 'node_modules', 'generator-basic-multitarget-application', 'generators', 'app', 'index.js');
+    env.register(mtaGenPath);
+    const mtaGenName = 'base-mta:app';
+    this.mtaGen = env.create(mtaGenName);
+    // this.mtaGen.destinationRoot(this.destinationRoot());
     this.getPrompts = function() {
       console.log('in getPrompts()');
       return [{name:"Prompt 1"},{name: "Prompt 2"},{name: "Registration"}];
     }
 
     this.option('babel');
+  }
+
+  destinationRoot(root) {
+    if (root) {
+      super.destinationRoot(root);
+      this.mtaGen.destinationRoot(root);
+    } else {
+      return super.destinationRoot();
+    }
   }
 
   paths() {
@@ -23,7 +40,8 @@ module.exports = class extends Generator {
   }
 
   async prompting() {
-    let prompts = [
+    let prompts = [this.mtaGen._getProjectNamePrompt()];
+    prompts.push(...[
       {
         type: "confirm",
         name: "hungry",
@@ -103,9 +121,10 @@ module.exports = class extends Generator {
         name: "number",
         message: "How many times you have been in this resturant"
       }
-    ];
+    ]);
 
     this.answers = await this.prompt(prompts);
+    this.mtaGen._setProjectName(this.answers.projectName);
     this.log("Food", this.answers.food);
 
     // currently not supported:
@@ -184,7 +203,6 @@ module.exports = class extends Generator {
       }
     ];
 
-
     const answers = await this.prompt(prompts);
     this.answers = Object.assign({}, this.answers, answers);
     this.log("Hunger level", this.answers.hungerLevel);
@@ -251,6 +269,10 @@ module.exports = class extends Generator {
     return 'Password need to have at least a letter and a number';
   }
 
+  async configuring() {
+    await this.mtaGen.configuring();
+  }
+
   writing() {
     this.log('in writing');
     this.fs.copyTpl(
@@ -263,9 +285,11 @@ module.exports = class extends Generator {
         fav_color:  this.answers.fav_color
       }
     );
+    this.mtaGen.writing();
   }
 
   end() {
+    this.mtaGen.end();
     this.log('in end');
   }
 };

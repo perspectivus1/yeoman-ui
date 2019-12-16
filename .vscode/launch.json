@@ -67,6 +67,7 @@
 			"args": [
 				"foodq"
 			],
+			"cwd": "c:\\Temp",
 			"console": "integratedTerminal",
 			"internalConsoleOptions": "neverOpen",
 			"skipFiles": [
