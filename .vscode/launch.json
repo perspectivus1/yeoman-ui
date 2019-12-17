@@ -75,6 +75,21 @@
 			]
 		},
 		{
+			"type": "node",
+			"request": "launch",
+			"name": "Debug consume-mta generator",
+			"program": "${workspaceFolder}/generator-consume-mta/node_modules/yo/lib/cli.js",
+			"args": [
+				"consume-mta"
+			],
+			"cwd": "c:\\Temp",
+			"console": "integratedTerminal",
+			"internalConsoleOptions": "neverOpen",
+			"skipFiles": [
+				"<node_internals>/**"
+			]
+		},
+		{
 			"name": "Test frontend",
 			"type": "node",
 			"request": "launch",

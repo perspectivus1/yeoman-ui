@@ -95,7 +95,7 @@ export class YeomanUI {
     try {
       const meta: Environment.GeneratorMeta = this.genMeta[`${generatorName}:app`];
       // TODO: support sub-generators
-      env.register(meta.resolved);
+      env.register(meta.resolved, meta.namespace);
       const gen: any = env.create(`${generatorName}:app`, {});
       // check if generator defined a helper function called getPrompts()
       if ((gen as any)["getPrompts"] !== undefined) {

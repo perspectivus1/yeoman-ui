@@ -8,12 +8,12 @@ module.exports = class extends Generator {
   constructor(args, opts) {
     super(args, opts);
 
-    const env = Env.createEnv();
-    var mtaGenPath = path.resolve(path.sep, 'Users', 'i034929', 'AppData', 'Roaming', 'npm', 'node_modules', 'generator-basic-multitarget-application', 'generators', 'app', 'index.js');
-    env.register(mtaGenPath);
-    const mtaGenName = 'base-mta:app';
-    this.mtaGen = env.create(mtaGenName);
-    // this.mtaGen.destinationRoot(this.destinationRoot());
+    // const env = Env.createEnv();
+    // var mtaGenPath = path.resolve(path.sep, 'Users', 'i034929', 'AppData', 'Roaming', 'npm', 'node_modules', 'generator-basic-multitarget-application', 'generators', 'app', 'index.js');
+    // env.register(mtaGenPath);
+    // const mtaGenName = 'base-mta:app';
+    // this.mtaGen = env.create(mtaGenName);
+    this.mtaGen = this.env.create('basic-multitarget-application:app');
     this.getPrompts = function() {
       console.log('in getPrompts()');
       return [{name:"Prompt 1"},{name: "Prompt 2"},{name: "Registration"}];
@@ -40,7 +40,7 @@ module.exports = class extends Generator {
   }
 
   async prompting() {
-    let prompts = [this.mtaGen._getProjectNamePrompt()];
+    let prompts = this.mtaGen.getQuestions();
     prompts.push(...[
       {
         type: "confirm",
@@ -124,7 +124,7 @@ module.exports = class extends Generator {
     ]);
 
     this.answers = await this.prompt(prompts);
-    this.mtaGen._setProjectName(this.answers.projectName);
+    this.mtaGen.setAnswers(this.answers);
     this.log("Food", this.answers.food);
 
     // currently not supported:
@@ -273,7 +273,8 @@ module.exports = class extends Generator {
     await this.mtaGen.configuring();
   }
 
-  writing() {
+  async writing() {
+    await this.mtaGen.writing();
     this.log('in writing');
     this.fs.copyTpl(
       this.templatePath('index.html'),
@@ -285,7 +286,6 @@ module.exports = class extends Generator {
         fav_color:  this.answers.fav_color
       }
     );
-    this.mtaGen.writing();
   }
 
   end() {
