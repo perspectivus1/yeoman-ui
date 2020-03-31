@@ -27,20 +27,7 @@ describe('App.vue', () => {
       wrapper = initComponent(App, {})
       wrapper.vm.prompts = [{}, {}]
       wrapper.vm.promptIndex = 1
-      expect(wrapper.vm.currentPrompt.answers).toEqual({})
-    })
-
-    it('questions are defined', async () => {
-      wrapper = initComponent(App, {})
-      await Vue.nextTick()
-      wrapper.vm.prompts = [{
-          questions: []
-        }, {
-          questions: [{name: 'q12', isWhen: true, answer: 'a12'}, {name: 'q22', isWhen: false, answer: 'a22'}]
-      }]
-      await Vue.nextTick()
-      wrapper.vm.promptIndex = 1
-      expect(wrapper.vm.currentPrompt.answers.q22).toBeUndefined()
+      expect(wrapper.vm.currentPrompt.answers).toBeUndefined()
     })
   })
 
@@ -78,6 +65,21 @@ describe('App.vue', () => {
 
       response = await questions[5].validate()
       expect(response).toBe(questions[5].name)
+    })
+
+    it('method that doesn\'t exist', async () => {
+      wrapper = initComponent(App, {}, true)
+      wrapper.vm.rpc = {
+        invoke: jest.fn().mockImplementation(async () => {
+          throw "error";
+        })
+      }
+
+      const questions = [
+        { name: 'validateQ', validate: '__Function' }
+      ]
+      wrapper.vm.prepQuestions(questions, 'promptName');
+      await expect(questions[0].validate()).rejects.toEqual("error");
     })
 
     // the delay ensures we call the busy indicator
@@ -203,8 +205,27 @@ describe('App.vue', () => {
 
       expect(resolveSpy).toHaveBeenCalled()
       expect(wrapper.vm.promptIndex).toBe(2)
+      expect(wrapper.vm.prompts).toHaveLength(3);
       expect(wrapper.vm.prompts[0].active).toBeFalsy()
       expect(wrapper.vm.prompts[2].active).toBeTruthy()
+      resolveSpy.mockRestore()
+    })
+
+    it('promptIndex is less than prompt length', () => {
+      wrapper = initComponent(App, {})
+      wrapper.vm.resolve = jest.fn()
+      wrapper.vm.reject = jest.fn()
+      wrapper.vm.promptIndex = 0
+      wrapper.vm.prompts = [{}, {}]
+      const resolveSpy = jest.spyOn(wrapper.vm, 'resolve')
+
+      wrapper.vm.next()
+
+      expect(resolveSpy).toHaveBeenCalled()
+      expect(wrapper.vm.promptIndex).toBe(1)
+      expect(wrapper.vm.prompts).toHaveLength(2);
+      expect(wrapper.vm.prompts[0].active).toBeFalsy()
+      expect(wrapper.vm.prompts[1].active).toBeTruthy()
       resolveSpy.mockRestore()
     })
 
@@ -243,6 +264,61 @@ describe('App.vue', () => {
     })
   })
 
+  describe('back - method', () => {
+    test('promptIndex is 0 (Select Generator)', () => {
+      wrapper = initComponent(App, {}, true);
+      wrapper.vm.rpc = {
+        invoke: jest.fn(),
+        registerMethod: jest.fn()
+      }  
+      const invokeSpy = jest.spyOn(wrapper.vm.rpc, 'invoke');
+
+      wrapper.vm.resolve = undefined;
+      wrapper.vm.promptIndex = 1;
+      wrapper.vm.prompts = [{}, {}];
+
+      wrapper.vm.back();
+
+      expect(wrapper.vm.promptIndex).toBe(0);
+      expect(wrapper.vm.prompts.length).toBe(0);
+      expect(wrapper.vm.isReplaying).toBe(false);
+      expect(invokeSpy).toHaveBeenCalledWith("receiveIsWebviewReady", []);
+    });
+
+    test('promptIndex is updated', () => {
+      wrapper = initComponent(App, {}, true);
+      wrapper.vm.rpc = {
+        invoke: jest.fn(),
+        registerMethod: jest.fn()
+      }  
+      const invokeSpy = jest.spyOn(wrapper.vm.rpc, 'invoke');
+
+      wrapper.vm.resolve = undefined;
+      wrapper.vm.promptIndex = 2;
+      wrapper.vm.prompts = [{}, {}, {}];
+
+      wrapper.vm.back();
+
+      expect(wrapper.vm.promptIndex).toBe(2);
+      expect(wrapper.vm.prompts.length).toBe(3);
+      expect(wrapper.vm.isReplaying).toBe(true);
+      expect(invokeSpy).toHaveBeenCalledWith("back", [undefined]);
+    });
+
+    test('set props', async () => {
+      wrapper = initComponent(App, {}, true)
+      wrapper.vm.rpc = {
+        invoke: jest.fn().mockImplementation((...args) => { return args[1][1] })
+      }
+      const questions = [{},{}];
+      wrapper.vm.promptIndex = 1;
+      wrapper.vm.isReplaying = true;
+      wrapper.vm.showPrompt(questions, 'promptName');
+      await Vue.nextTick()
+      expect(wrapper.vm.promptIndex).toBe(0);
+    });
+  });
+
   describe('setPromptList - method', () => {
     it('prompts is empty array', () => {
       wrapper = initComponent(App)
@@ -266,6 +342,21 @@ describe('App.vue', () => {
       wrapper.vm.setPromptList()
 
       expect(wrapper.vm.prompts).toHaveLength(2)
+    })
+
+    it('while replaying', () => {
+      wrapper = initComponent(App);
+
+      wrapper.vm.prompts = [{}, {}];
+      wrapper.vm.promptIndex = 1;
+      wrapper.vm.isReplaying = true;
+      wrapper.vm.currentPrompt.status = 'pending';
+
+      const prompts = [{}, {}, {}];
+      wrapper.vm.setPromptList(prompts);
+
+      expect(wrapper.vm.prompts).toHaveLength(4);
+      expect(wrapper.vm.isReplaying).toBe(true);
     })
   })
 
