@@ -32,20 +32,40 @@
             :doneMessage="doneMessage"
             :donePath="donePath"
           />
-          <PromptInfo v-if="currentPrompt && !isDone" :currentPrompt="currentPrompt" />
+          <PromptInfo v-if="currentPrompt && !isDone && currentPrompt.style === 'default'" :currentPrompt="currentPrompt" />
           <GeneratorSelection
             v-if="shouldShowGeneratorSelection()"
             @generatorSelected="selectGenerator"
             :currentQuestion="currentPrompt.questions[0]"
           />
-          <v-slide-x-transition>
-            <Form
-              ref="form"
-              :questions="currentPrompt ? currentPrompt.questions : []"
-              v-show="!shouldShowGeneratorSelection()"
-              @answered="onAnswered"
-            />
-          </v-slide-x-transition>
+          <div id="dialogBackground" :class="promptStyleName">
+          <div id="dialog" :class="promptStyleName">
+          <PromptInfo v-if="currentPrompt && !isDone && currentPrompt.style === 'dialog'" :currentPrompt="currentPrompt" />
+            <v-slide-x-transition>
+              <Form
+                ref="form"
+                :questions="currentPrompt ? currentPrompt.questions : []"
+                v-show="!shouldShowGeneratorSelection()"
+                @answered="onAnswered"
+              />
+            </v-slide-x-transition>
+            <div class="text-center" v-show="!shouldShowGeneratorSelection() && currentPrompt && currentPrompt.style === 'dialog'">
+              <v-btn
+                id="cancel"
+                key="cancel"
+                class="ma-2"
+                @click="back"
+              >Cancel</v-btn>
+              <v-btn
+                id="submit"
+                key="submit"
+                class="ma-2"
+                @click="next"
+              >Login</v-btn>
+            </div>
+          </div>
+          </div>
+
           </v-col>
         </v-row>
         <v-row
@@ -58,10 +78,10 @@
           <div class="diagonal">
           </div>
           <div class="bottom-buttons-col" style="display:flex;align-items: center;">
-            <v-btn id="back" :disabled="promptIndex<1 || isReplaying" @click="back" v-show="false && !shouldShowGeneratorSelection()">
+            <v-btn id="back" :disabled="promptIndex<1 || isReplaying || (currentPrompt && currentPrompt.style === 'dialog')" @click="back" v-show="false && !shouldShowGeneratorSelection()">
               <v-icon left>mdi-chevron-left</v-icon>Back
             </v-btn>
-            <v-btn id="next" :disabled="!stepValidated" @click="next">
+            <v-btn id="next" :disabled="!stepValidated || (currentPrompt && currentPrompt.style === 'dialog')" @click="next">
               Next<v-icon right>mdi-chevron-right</v-icon>
             </v-btn>
           </div>
@@ -119,7 +139,10 @@ function initialState() {
     showBusyIndicator: false,
     transitionToggle: false,
     promptsInfoToDisplay: [],
-    isReplaying: false
+    isReplaying: false,
+    promptStyleName: "prompt-style-default",
+    backText: "Cancel",
+    nextText: "Submit"
   };
 }
 
@@ -245,6 +268,7 @@ export default {
         promptIndex = 0;
       }
       prompts = prompts || [];
+
       this.promptsInfoToDisplay = _.cloneDeep(prompts);
       // replace all existing prompts except 1st (generator selction) and current prompt
       const startIndex = promptIndex + 1;
@@ -317,6 +341,9 @@ export default {
     createPrompt(questions, name) {
       let promptDescription = "";
       let promptName = name;
+      let promptStyle = "default";
+      let backText = "Cancel";
+      let nextText = "Submit";
       if (name === "select_generator") {
         promptDescription = this.messages.select_generator_description;
         promptName = this.messages.select_generator_name;
@@ -324,12 +351,23 @@ export default {
         const promptToDisplay = _.get(this.promptsInfoToDisplay, "[" + (this.promptIndex - 1) +"]");
         promptDescription = _.get(promptToDisplay, "description", "");
         promptName = _.get(promptToDisplay, "name", name);
+        promptStyle = _.get(promptToDisplay, "style", "default");
+        backText = _.get(promptToDisplay, "backText", "Cancel");
+        nextText = _.get(promptToDisplay, "nextText", "Submit");
       }
 
+      if (promptStyle === "dialog") {
+        this.promptStyleName = "prompt-style-dialog";
+        this.backText = backText;
+        this.nextText = nextText;
+      } else {
+        this.promptStyleName = "prompt-style-default";
+      }
       const prompt = Vue.observable({
         questions: questions,
         name: promptName,
         description: promptDescription,
+        style: promptStyle,
         answers: {},
         active: true
       });
@@ -492,4 +530,19 @@ div.consoleClassVisible .v-footer {
   background-color: var(--vscode-editorWidget-background, #252526);
   padding-right: 25px;
 }
+
+#dialogBackground.prompt-style-dialog {
+  background-color: var(--vscode-editorWidget-background, #252526);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+#dialog.prompt-style-dialog {
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  padding: 1em;
+  min-width: 40%;
+}
+
 </style>

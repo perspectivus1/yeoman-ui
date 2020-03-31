@@ -14,7 +14,8 @@
         "${workspaceFolder}/backend/out/**/*.js"
       ],
       "env": {
-        "PORT": "8081"
+        "PORT": "8081",
+        "UI5_TEMPLATE_FOLDER": "C:\\Users\\i034929\\repos"
       },
       "preLaunchTask": "watch backend (tsc)"
     },

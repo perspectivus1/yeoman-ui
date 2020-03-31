@@ -28,4 +28,7 @@ export class Prompts {
 export interface IPrompt {
     name: string;
     description: string;
+    style?: string;
+    backText?: string;
+    nextText?: string;
 }

@@ -18,6 +18,7 @@ module.exports = class extends Generator {
     var prompts = [
       {name: "Hunger Info", description: "Hunger Info Description"},
       {name: "Hunger Level", description: "Hunger Level Description"},
+      {name: "Login to GitHub", description: "Enter your GitHub credentials", style: "dialog", backText: "Cancel", nextText: "Login"},
       {name: "Registration", description: "Thank you for your interest in our resturant.\nPlease enter credentials to register.\n(it shouldn't take you more then 1 minute)"}
     ];
     this.prompts = new types.Prompts(prompts);
@@ -177,7 +178,7 @@ module.exports = class extends Generator {
         guiType: "folder-browser",
         name: "dump",
         message: "Choose dump folder",
-        default: "/"
+        default: "c:/Users/"
       },
       {
         type: 'list',
@@ -218,6 +219,30 @@ module.exports = class extends Generator {
 
     prompts = [
       {
+        name: "email",
+        message: "What's your GitHub username",
+        store: true,
+        validate: (value, answers) => {
+          return (value.length > 0 ? true : "This field is mandatory");
+        }
+      },
+      {
+        type: "password",
+        name: "password",
+        message: "What's your GitHub password",
+        mask: '*',
+        validate: this._requireLetterAndNumber,
+        when: (response) => {
+          return response.email !== "root";
+        }
+      }
+    ];
+    const answersLogin = await this.prompt(prompts);
+
+    this.answers = Object.assign({}, this.answers, answersLogin);
+
+    prompts = [
+      {
         type: 'rawlist',
         name: 'repotype',
         message: 'Git repo type',
@@ -248,25 +273,6 @@ module.exports = class extends Generator {
         validate: (value, answers) => {
           return (value !== 'private' ? true : "private repository is not supported");
         },
-      },
-      {
-        name: "email",
-        message: "What's your GitHub username",
-        store: true,
-        validate: (value, answers) => {
-          return (value.length > 0 ? true : "This field is mandatory");
-        }
-      },
-      {
-        type: "password",
-        guiType: "login",
-        name: "password",
-        message: "What's your GitHub password",
-        mask: '*',
-        validate: this._requireLetterAndNumber,
-        when: (response) => {
-          return response.email !== "root";
-        }
       }
     ];
 
@@ -280,7 +286,7 @@ module.exports = class extends Generator {
       return true;
     }
 
-    return 'Password need to have at least a letter and a number';
+    return 'Password must contain at least a letter and a number';
   }
 
   configuring() {

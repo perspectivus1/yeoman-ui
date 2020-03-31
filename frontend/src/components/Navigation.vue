@@ -1,13 +1,14 @@
 <template>
   <div>
     <v-stepper v-model="currentStep" dark vertical>
-      <template v-for="index in steps">
+      <template v-for="(item, index) in prompts">
         <!-- Todo Check why there's an empty step -->
         <v-stepper-step
+          v-if="item.style !== 'dialog'"
           :key="`${index}-step`"
           :step="index"
-          :complete="currentStep > index"
-        >{{ prompts[index - 1] ? prompts[index - 1].name : "" }}</v-stepper-step>
+          :complete="promptIndex > index"
+        >{{ item ? item.name : "" }}</v-stepper-step>
         <v-stepper-content :step="index" :key="`${index}-content`"></v-stepper-content>
       </template>
     </v-stepper>
@@ -21,19 +22,15 @@ export default {
   props: ["promptIndex", "prompts"],
   data() {
     return {
-      currentStep: 1,
-      steps: 1
+      currentStep: 0
     };
   },
 
   watch: {
     promptIndex(val) {
       this.$nextTick(() => {
-        this.currentStep = val + 1;
+        this.currentStep = val;
       });
-    },
-    prompts(val) {
-      this.steps = val.length;
     }
   }
 };
