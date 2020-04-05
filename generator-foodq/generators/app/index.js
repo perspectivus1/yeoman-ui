@@ -220,7 +220,7 @@ module.exports = class extends Generator {
     prompts = [
       {
         name: "email",
-        message: "What's your GitHub username",
+        message: "What's your GitHub username?",
         store: true,
         validate: (value, answers) => {
           return (value.length > 0 ? true : "This field is mandatory");
@@ -229,7 +229,7 @@ module.exports = class extends Generator {
       {
         type: "password",
         name: "password",
-        message: "What's your GitHub password",
+        message: "What's your GitHub password?",
         mask: '*',
         validate: this._requireLetterAndNumber,
         when: (response) => {
@@ -237,9 +237,19 @@ module.exports = class extends Generator {
         }
       }
     ];
-    const answersLogin = await this.prompt(prompts);
+    let isLoginSuccessful = false;
+    let answersLogin;
+    do {
+      answersLogin = await this.prompt(prompts);
+      // perform authentication after prompt done; this supports back feature
+      // mimicking authentication:
+      if (answersLogin.email !== "joe") {
+        this.authToken = `${answersLogin.email}-${String.fromCharCode(answersLogin.password.charCodeAt(0) + 1)}`;
+        isLoginSuccessful = true;
+      }
+    } while (!isLoginSuccessful)  
 
-    this.answers = Object.assign({}, this.answers, answersLogin);
+    this.answers = Object.assign({}, this.answers, {email: answersLogin.email});
 
     prompts = [
       {
@@ -247,7 +257,7 @@ module.exports = class extends Generator {
         name: 'repotype',
         message: 'Git repo type',
         choices: [
-          'Github',
+          'GitHub',
           'GitLab',
           new Inquirer.Separator(),
           'Bitbucket',
@@ -271,6 +281,7 @@ module.exports = class extends Generator {
           }
         ],
         validate: (value, answers) => {
+          this.log(`can make use of auth token ${this.authToken} from login step`);
           return (value !== 'private' ? true : "private repository is not supported");
         },
       }
@@ -314,8 +325,7 @@ module.exports = class extends Generator {
 
       repotype: this.answers.repotype,
       repoperms: this.answers.repoperms,
-      email: this.answers.email,
-      password: this.answers.password
+      email: this.answers.email
     }
     );
     this.fs.copy(
