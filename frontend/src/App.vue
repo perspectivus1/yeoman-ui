@@ -32,6 +32,7 @@
             :doneMessage="doneMessage"
             :donePath="donePath"
           />
+         
           <PromptInfo v-if="currentPrompt && !isDone" :currentPrompt="currentPrompt" />
           <GeneratorSelection
             v-if="shouldShowGeneratorSelection()"
@@ -94,6 +95,7 @@ import * as _ from "lodash";
 import FileBrowserPlugin from "@sap-devx/inquirer-gui-file-browser-plugin";
 import FolderBrowserPlugin from "@sap-devx/inquirer-gui-folder-browser-plugin";
 import LoginPlugin from "@sap-devx/inquirer-gui-login-plugin";
+import TilesPlugin from "@sap-devx/inquirer-gui-tiles-plugin";
 
 const FUNCTION = "__Function";
 const PENDING = "pending";
@@ -171,10 +173,8 @@ export default {
   },
   methods: {
     shouldShowGeneratorSelection() {
-      return this.currentPrompt && 
-        this.currentPrompt.questions &&
-        this.currentPrompt.questions[0] &&
-        this.currentPrompt.questions[0].type==='generators';
+      const currentQuestionType = _.get(this, "currentPrompt.questions[0].type"); 
+      return currentQuestionType === 'generators';
     },
     setBusyIndicator() {
       this.showBusyIndicator =
@@ -234,8 +234,11 @@ export default {
         currentPrompt.answers = answers;
       }
     },
-    setMessages(messages) {
-      this.messages = messages;
+    setState(state) {
+      this.messages = state.messages;
+      if (this.isInVsCode()) {
+        window.vscode.setState(state);
+      }
     },
     setPromptList(prompts) {
       let promptIndex = this.promptIndex;
@@ -382,7 +385,7 @@ export default {
         "generatorInstall",
         "generatorDone",
         "log",
-        "setMessages"
+        "setState"
       ];
       _.forEach(functions, funcName => {
         this.rpc.registerMethod({
@@ -413,6 +416,12 @@ export default {
 
       options = {};
       Vue.use(LoginPlugin, options);
+      if (options.plugin) {
+        this.$refs.form.registerPlugin(options.plugin);
+      }
+
+      options = {};
+      Vue.use(TilesPlugin, options);
       if (options.plugin) {
         this.$refs.form.registerPlugin(options.plugin);
       }
@@ -491,5 +500,8 @@ div.consoleClassVisible .v-footer {
 .bottom-buttons-col {
   background-color: var(--vscode-editorWidget-background, #252526);
   padding-right: 25px;
+}
+.bottom-buttons-col > .v-btn:not(:last-child) {
+    margin-right: 10px !important;
 }
 </style>

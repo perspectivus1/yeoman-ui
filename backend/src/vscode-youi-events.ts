@@ -1,18 +1,22 @@
 import * as vscode from 'vscode';
+import * as _ from 'lodash';
 import { YouiEvents } from "./youi-events";
 import { RpcCommon } from "@sap-devx/webview-rpc/out.ext/rpc-common";
+import { GeneratorFilter, GeneratorType } from './filter';
 
 export class VSCodeYouiEvents implements YouiEvents {
     private rpc: RpcCommon;
     private webviewPanel: vscode.WebviewPanel;
     public static installing: boolean;
+    private genFilter: GeneratorFilter;
 
-    constructor(rpc : RpcCommon, webviewPanel: vscode.WebviewPanel) {
+    constructor(rpc : RpcCommon, webviewPanel: vscode.WebviewPanel, genFilter: GeneratorFilter) {
         this.rpc = rpc; 
-        this.webviewPanel = webviewPanel;       
+        this.webviewPanel = webviewPanel;   
+        this.genFilter = genFilter;    
     }
 
-    public doGeneratorDone(success: boolean, message: string, targetPath = ""): void {
+    public doGeneratorDone(success: boolean, message: string, targetPath: string = ""): void {
         this.doClose();
         this.showDoneMessage(success, message, targetPath);
     }
@@ -48,31 +52,48 @@ export class VSCodeYouiEvents implements YouiEvents {
         });
     }
 
-    private showDoneMessage(success: boolean, message: string, targetPath: string): void {
+    private showDoneMessage(success: boolean, errorMmessage: string, targetPath: string): Thenable<any> {
         VSCodeYouiEvents.installing = false;
+        
         if (success) {
-            const OpenWorkspace = 'Open in New Workspace';
-            const AddToWorkspace = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length) ? 'Add to Workspace' : undefined;
-            vscode.window.showInformationMessage('The project has been successfully generated.\nWhat would you like to do with it?', AddToWorkspace, OpenWorkspace).then(selection => {
-                if (selection === OpenWorkspace) {
-                    this.executeCommand("vscode.openFolder", targetPath);
-                } else if (selection === AddToWorkspace) {
-                    vscode.workspace.updateWorkspaceFolders(vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders.length : 0, null, { uri: vscode.Uri.file(targetPath)});
+            const addToWorkspace: string = "Add to Workspace";
+            const openInNewWorkspace: any = "Open in New Workspace";
+            const items: string[] = [];
+            
+            const targetFolderUri: vscode.Uri = vscode.Uri.file(targetPath);
+
+            if (this.genFilter.type !== GeneratorType.module) {
+                const workspacePath = _.get(vscode, "workspace.workspaceFolders[0].uri.fsPath");
+                // 1. target workspace folder should not already contain target generator folder
+                const foundInWorkspace = _.find(vscode.workspace.workspaceFolders, (wsFolder: vscode.WorkspaceFolder) => {
+                    return targetFolderUri.fsPath === wsFolder.uri.fsPath;
+                });
+                // 2. Theia bug: vscode.workspace.workspaceFolders should not be undefined or empty
+                if (!foundInWorkspace && workspacePath) {
+                    items.push(addToWorkspace);
+                }
+
+                // target workspace path should not be equal to target generator folder path
+                if (workspacePath !== targetFolderUri.fsPath) {
+                    items.push(openInNewWorkspace);
+                }
+            }
+
+            const successInfoMessage = "The project has been generated.";
+            if (_.isEmpty(items)) {
+                return vscode.window.showInformationMessage(successInfoMessage);
+            } 
+
+            return vscode.window.showInformationMessage(`${successInfoMessage}\nWhat would you like to do with it?`, ...items).then(selection => {
+                if (selection === openInNewWorkspace) {
+                    return vscode.commands.executeCommand("vscode.openFolder", targetFolderUri);
+                } else if (selection === addToWorkspace) {
+                    const wsFoldersQuantity = _.size(vscode.workspace.workspaceFolders);
+                    return vscode.workspace.updateWorkspaceFolders(wsFoldersQuantity, null, { uri: targetFolderUri});
                 }
             });
-        } else {
-            vscode.window.showErrorMessage(message);
         }
-    }
 
-	private async executeCommand(commandName: string, commandParam: any): Promise<any> {
-		if (commandName === "vscode.open" || commandName === "vscode.openFolder") {
-			commandParam = vscode.Uri.file(commandParam);
-		}
-		return vscode.commands.executeCommand(commandName, commandParam).then(success => {
-			console.debug(`Execution of command ${commandName} returned ${success}`);
-		}, failure => {
-			console.debug(`Execution of command ${commandName} returned ${failure}`);
-		});
-	}
+        return vscode.window.showErrorMessage(errorMmessage);
+    }
 }

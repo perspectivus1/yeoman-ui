@@ -138,17 +138,18 @@ export class YeomanUI {
   public async runGenerator(generatorName: string) {
     this.generatorName = generatorName;
     // TODO: should create and set target dir only after user has selected a generator;
-    //  see issue: https://github.com/yeoman/environment/issues/55
-    //  process.chdir() doesn't work after environment has been created
+    // see issue: https://github.com/yeoman/environment/issues/55
+    // process.chdir() doesn't work after environment has been created
     try {
       await fsextra.mkdirs(this.getCwd());
       const env: Environment = Environment.createEnv(undefined, {}, this.youiAdapter);
       const meta: Environment.GeneratorMeta = this.getGenMetadata(generatorName);
       // TODO: support sub-generators
-      env.register(meta.resolved);
+      // @ts-ignore
+      env.register(meta.resolved, meta.namespace, meta.packagePath);
 
       const genNamespace = this.getGenNamespace(generatorName);
-      const gen: any = env.create(genNamespace, {});
+      const gen: any = env.create(genNamespace, {options: {logger: this.logger.getChildLogger({label: generatorName})}});
       // check if generator defined a helper function called setPromptsCallback()
       const setPromptsCallback = _.get(gen, "setPromptsCallback");
       if (setPromptsCallback) {
@@ -176,8 +177,8 @@ export class YeomanUI {
     }
   }
 
-  public setMessages(messages: any): Promise<void> {
-    return this.rpc ? this.rpc.invoke("setMessages", [messages]) : Promise.resolve();
+  public setState(messages: any): Promise<void> {
+    return this.rpc ? this.rpc.invoke("setState", [messages]) : Promise.resolve();
   }
 
   /**
@@ -189,15 +190,13 @@ export class YeomanUI {
     try {
       if (this.currentQuestions) {
         const relevantQuestion: any = _.find(this.currentQuestions, question => {
-          return (_.get(question, "name") === questionName);
+          return _.get(question, "name") === questionName;
         });
         if (relevantQuestion) {
           const customQuestionEventHandler: Function = this.getCustomQuestionEventHandler(relevantQuestion["guiType"], methodName);
-          if (customQuestionEventHandler !== undefined) {
-            return await customQuestionEventHandler.apply(this.gen, params);
-          } else {
-            return await relevantQuestion[methodName].apply(this.gen, params);
-          }
+          return _.isUndefined(customQuestionEventHandler) ? 
+            await relevantQuestion[methodName].apply(this.gen, params) : 
+            await customQuestionEventHandler.apply(this.gen, params);
         }
       }
     } catch (error) {
@@ -305,7 +304,8 @@ export class YeomanUI {
   private setGenInstall(gen: any) {
     const originalPrototype = Object.getPrototypeOf(gen);
     const originalGenInstall = _.get(originalPrototype, "install");
-    if (originalGenInstall) {
+    if (originalGenInstall && !originalPrototype._uiInstall) {
+      originalPrototype._uiInstall = true;
       originalPrototype.install = () => {
         try {
           this.youiEvents.doGeneratorInstall();
@@ -314,6 +314,7 @@ export class YeomanUI {
           this.logError(error);
         } finally {
           originalPrototype.install = originalGenInstall;
+          delete originalPrototype._uiInstall;
         }
       };
     }
